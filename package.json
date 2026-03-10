@@ -9,6 +9,7 @@
     "dev": "vercel dev"
   },
   "dependencies": {
+    "dotenv": "^16.4.5",
     "geoip-lite": "^1.4.7",
     "mongodb": "^5.7.0",
     "ua-parser-js": "^1.0.37",
