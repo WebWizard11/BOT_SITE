@@ -297,7 +297,7 @@ async function sendData() {
   }
 
   try {
-    const res = await fetch("/api/collect", {
+    const res = await fetch("/api/event", {
       method: "POST",
       body: JSON.stringify(payload),
       headers: {
@@ -344,7 +344,7 @@ function flushOnUnload() {
       { type: "application/json" }
     );
 
-    navigator.sendBeacon("/api/collect", blob);
+    navigator.sendBeacon("/api/event", blob);
   } catch (e) {}
 }
 
