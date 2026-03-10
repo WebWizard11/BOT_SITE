@@ -1,7 +1,5 @@
 const { MongoClient } = require("mongodb");
 
-// Reuse client across invocations in a serverless environment.
-// (In Vercel, module scope may be reused between requests.)
 let client;
 
 module.exports = async function handler(req, res) {
@@ -14,31 +12,42 @@ module.exports = async function handler(req, res) {
     const dbName = process.env.MONGODB_DB || "clickstreamdb";
 
     if (!uri) {
-      console.error("collector error: MONGODB_URI is not set");
+      console.error("collector error: MONGODB_URI missing");
       return res
         .status(500)
         .json({ error: "Server misconfiguration: database URL missing" });
     }
 
     if (!client) {
-      const nextClient = new MongoClient(uri);
-      try {
-        await nextClient.connect();
-        client = nextClient;
-      } catch (err) {
-        try {
-          await nextClient.close();
-        } catch (e) {}
-        throw err;
-      }
+      client = new MongoClient(uri);
+      await client.connect();
     }
 
     const db = client.db(dbName);
-    const body = typeof req.body === "string" ? JSON.parse(req.body) : req.body;
+
+    let body;
+    try {
+      body = typeof req.body === "string" ? JSON.parse(req.body) : req.body;
+    } catch {
+      return res.status(400).json({ error: "Invalid JSON payload" });
+    }
+
+    if (!body || !body.sessionId) {
+      return res.status(400).json({ error: "Invalid session payload" });
+    }
+
+    const ip =
+      req.headers["x-forwarded-for"] ||
+      req.socket?.remoteAddress ||
+      "unknown";
+
+    const userAgent = req.headers["user-agent"] || "unknown";
 
     await db.collection("clickstream").insertOne({
       ...body,
-      createdAt: new Date(),
+      ipAddress: ip,
+      userAgent,
+      createdAt: new Date()
     });
 
     return res.status(204).end();

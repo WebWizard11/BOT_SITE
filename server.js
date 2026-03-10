@@ -83,5 +83,4 @@ app.post('/collect', collectHandler);
 // Match Vercel serverless route used by the frontend
 app.post('/api/collect', collectHandler);
 
-const PORT = Number(process.env.PORT || 3000);
-app.listen(PORT, ()=>{ console.log(`Local server running at http://localhost:${PORT}`); });
+module.exports = app;
