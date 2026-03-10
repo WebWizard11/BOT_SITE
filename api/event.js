@@ -1,7 +1,20 @@
 const { MongoClient } = require("mongodb");
 
-let cachedClient = null;
-let cachedDb = null;
+let client;
+let clientPromise;
+
+const uri = process.env.MONGODB_URI;
+const dbName = process.env.MONGODB_DB || "clickstreamdb";
+
+if (!uri) {
+  throw new Error("Please add MONGODB_URI to Vercel environment variables");
+}
+
+// Create a global connection promise
+if (!clientPromise) {
+  client = new MongoClient(uri);
+  clientPromise = client.connect();
+}
 
 module.exports = async function handler(req, res) {
 
@@ -18,23 +31,8 @@ module.exports = async function handler(req, res) {
 
   try {
 
-    const uri = process.env.MONGODB_URI;
-    const dbName = process.env.MONGODB_DB || "clickstreamdb";
-
-    if (!uri) {
-      return res.status(500).json({
-        error: "MONGODB_URI not configured"
-      });
-    }
-
-    // Reuse cached connection
-    if (!cachedClient) {
-      cachedClient = new MongoClient(uri);
-      await cachedClient.connect();
-      cachedDb = cachedClient.db(dbName);
-    }
-
-    const db = cachedDb;
+    const client = await clientPromise;
+    const db = client.db(dbName);
 
     let body;
 
@@ -43,15 +41,11 @@ module.exports = async function handler(req, res) {
         ? JSON.parse(req.body)
         : req.body;
     } catch {
-      return res.status(400).json({
-        error: "Invalid JSON payload"
-      });
+      return res.status(400).json({ error: "Invalid JSON payload" });
     }
 
     if (!body || !body.sessionId) {
-      return res.status(400).json({
-        error: "Invalid session payload"
-      });
+      return res.status(400).json({ error: "Invalid session payload" });
     }
 
     const ip =
@@ -59,8 +53,7 @@ module.exports = async function handler(req, res) {
       req.socket?.remoteAddress ||
       "unknown";
 
-    const userAgent =
-      req.headers["user-agent"] || "unknown";
+    const userAgent = req.headers["user-agent"] || "unknown";
 
     await db.collection("clickstream").insertOne({
       ...body,
