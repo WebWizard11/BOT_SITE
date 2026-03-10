@@ -10,8 +10,12 @@
 <body>
   <div class="container">
     <header>
+      <span class="badge">Academic research demo</span>
       <h1>Clickstream Research Page</h1>
-      <p class="muted">Anonymous interaction data collected for academic research on click-fraud detection.</p>
+      <p class="muted">
+        Anonymous interaction data collected to study patterns that distinguish
+        real users from automated click fraud.
+      </p>
     </header>
 
     <main>
@@ -32,11 +36,11 @@
             <button class="ad">Sponsored: Product B</button>
             <button class="ad">Sponsored: Product C</button>
           </div>
-
           <div class="info">
             <p>Session ID: <span id="sessionId"></span></p>
             <p>Events recorded: <span id="eventCount">0</span></p>
-            <p><small>Close the tab to send data automatically.</small></p>
+            <p>Status: <span id="status">Waiting for consent</span></p>
+            <p><small>Close the tab to send data automatically, or keep it open to stream data periodically.</small></p>
           </div>
         </div>
 
@@ -50,6 +54,8 @@
         <p class="muted">For research only — instructor: provide informed consent when sharing.</p>
       </footer>
     </div>
+
+    <div id="toast" class="toast">Session data saved to database</div>
   <script src="/app.js"></script>
 </body>
 </html>

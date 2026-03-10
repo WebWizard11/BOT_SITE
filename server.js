@@ -21,8 +21,14 @@ let mongoClient;
 
 async function getDb(){
   if(!mongoClient){
-    mongoClient = new MongoClient(MONGO_URI);
-    await mongoClient.connect();
+    const nextClient = new MongoClient(MONGO_URI);
+    try{
+      await nextClient.connect();
+      mongoClient = nextClient;
+    } catch(err){
+      try{ await nextClient.close(); } catch(e){}
+      throw err;
+    }
   }
   return mongoClient.db(MONGO_DB);
 }
@@ -38,7 +44,7 @@ function parseDevice(req){
   };
 }
 
-app.post('/collect', async (req,res)=>{
+async function collectHandler(req, res){
   try {
     const ip = req.headers['x-forwarded-for'] || req.socket.remoteAddress || '';
     const geo = geoip.lookup(ip);
@@ -55,6 +61,7 @@ app.post('/collect', async (req,res)=>{
     };
 
     // Save to file (for quick local debug)
+    fs.mkdirSync("data", { recursive: true });
     fs.appendFileSync("data/clickstream.jsonl", JSON.stringify(record) + "\n");
 
     // Save to MongoDB if configured
@@ -68,6 +75,13 @@ app.post('/collect', async (req,res)=>{
     console.error(err);
     res.status(500).json({error: 'server error'});
   }
-});
+}
 
-app.listen(3000, ()=>{ console.log('Local server running at http://localhost:3000'); });
+// Local endpoint used by older versions
+app.post('/collect', collectHandler);
+
+// Match Vercel serverless route used by the frontend
+app.post('/api/collect', collectHandler);
+
+const PORT = Number(process.env.PORT || 3000);
+app.listen(PORT, ()=>{ console.log(`Local server running at http://localhost:${PORT}`); });

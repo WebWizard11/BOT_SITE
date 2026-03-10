@@ -19,10 +19,23 @@ let hoverTime = 0;
 let activeTime = 0;
 let inactivityTimer = null;
 let eventCountEl = document.getElementById('eventCount');
+let statusEl = document.getElementById('status');
+let toastEl = document.getElementById('toast');
+let toastTimeout;
 
 function pushEvent(e){
   events.push(e);
   eventCountEl.innerText = events.length;
+}
+
+function showToast(message){
+  if (!toastEl) return;
+  toastEl.textContent = message;
+  toastEl.classList.add('show');
+  if (toastTimeout) clearTimeout(toastTimeout);
+  toastTimeout = setTimeout(()=>{
+    toastEl.classList.remove('show');
+  }, 3000);
 }
 
 // Activity / idle tracking
@@ -124,11 +137,38 @@ function computeFeatures(){
 
 function sendData(){
   const payload = computeFeatures();
+  if (statusEl) {
+    statusEl.textContent = "Sending data to server...";
+  }
+  fetch('/api/collect', {
+    method:'POST',
+    body: JSON.stringify(payload),
+    headers:{'Content-Type':'application/json'}
+  })
+    .then(async (res)=>{
+      if (res.ok) {
+        if (statusEl) statusEl.textContent = "Last sync just now";
+        showToast("Session data saved to database");
+      } else {
+        let details = "";
+        try {
+          const text = await res.text();
+          details = text ? ` (${text.slice(0, 120)})` : "";
+        } catch(e) {}
+        if (statusEl) statusEl.textContent = `Save failed: HTTP ${res.status}${details}`;
+      }
+    })
+    .catch(()=>{
+      if (statusEl) statusEl.textContent = "Unable to reach server";
+    });
+}
+
+function flushOnUnload(){
+  const payload = computeFeatures();
   try {
     navigator.sendBeacon('/api/collect', JSON.stringify(payload));
   } catch(e){
-    // fallback
-    fetch('/api/collect', {method:'POST', body: JSON.stringify(payload), headers:{'Content-Type':'application/json'}});
+    // ignore
   }
 }
 
@@ -138,14 +178,16 @@ const content = document.getElementById('content');
 document.getElementById('btn-accept').addEventListener('click', ()=>{
   consentBox.classList.add('hidden');
   content.classList.remove('hidden');
+  if (statusEl) statusEl.textContent = "Collecting interaction data";
 });
 document.getElementById('btn-decline').addEventListener('click', ()=>{
   consentBox.innerHTML = '<p>Consent declined. You may close this tab.</p>';
   content.classList.add('hidden');
+  if (statusEl) statusEl.textContent = "Collection disabled";
 });
 
 // Send data on unload
-window.addEventListener('beforeunload', sendData);
+window.addEventListener('beforeunload', flushOnUnload);
 
 // also send data every 20 seconds
 setInterval(sendData, 20000);

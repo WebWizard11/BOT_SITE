@@ -1,24 +1,40 @@
-import { MongoClient } from "mongodb";
+const { MongoClient } = require("mongodb");
 
+// Reuse client across invocations in a serverless environment.
+// (In Vercel, module scope may be reused between requests.)
 let client;
 
-export default async function handler(req, res) {
+module.exports = async function handler(req, res) {
   if (req.method !== "POST") {
     return res.status(405).send("Method Not Allowed");
   }
 
   try {
     const uri = process.env.MONGODB_URI;
+    const dbName = process.env.MONGODB_DB || "clickstreamdb";
 
-    if (!client) {
-      client = new MongoClient(uri);
-      await client.connect();
+    if (!uri) {
+      console.error("collector error: MONGODB_URI is not set");
+      return res
+        .status(500)
+        .json({ error: "Server misconfiguration: database URL missing" });
     }
 
-    const db = client.db(process.env.MONGODB_DB || "clickstreamdb");
+    if (!client) {
+      const nextClient = new MongoClient(uri);
+      try {
+        await nextClient.connect();
+        client = nextClient;
+      } catch (err) {
+        try {
+          await nextClient.close();
+        } catch (e) {}
+        throw err;
+      }
+    }
 
-    const body =
-      typeof req.body === "string" ? JSON.parse(req.body) : req.body;
+    const db = client.db(dbName);
+    const body = typeof req.body === "string" ? JSON.parse(req.body) : req.body;
 
     await db.collection("clickstream").insertOne({
       ...body,
@@ -28,6 +44,6 @@ export default async function handler(req, res) {
     return res.status(204).end();
   } catch (err) {
     console.error("collector error:", err);
-    return res.status(500).json({ error: err.message });
+    return res.status(500).json({ error: "Database error: " + err.message });
   }
-}
+};

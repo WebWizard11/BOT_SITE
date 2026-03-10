@@ -31,6 +31,13 @@ It is ready to deploy on Vercel and stores data in MongoDB Atlas.
    - `MONGODB_DB` = database name (e.g., clickstreamdb)
 4. Deploy. The API endpoint `/api/collect` will be used by the frontend to store data.
 
+## MongoDB Atlas checklist (common deploy issues)
+- **Network Access**: In MongoDB Atlas → Network Access, you must allow connections from where the function runs.
+  - Quick fix for demos: add `0.0.0.0/0` (Allow access from anywhere). Remove/restrict later.
+- **Database user**: Ensure the MongoDB user has read/write access to the target database.
+- **Vercel env vars**: `.env` is only for local. On Vercel you must set `MONGODB_URI` and `MONGODB_DB` in the Vercel project settings and redeploy.
+- **Runtime module format**: `api/collect.js` uses CommonJS (`require`/`module.exports`) to match this repo’s Node setup.
+
 ## Notes
 - The serverless function `/api/collect` stores data to MongoDB.
 - Add a consent banner and inform users this is for academic research.
