@@ -1,10 +1,11 @@
 const { MongoClient } = require("mongodb");
 
-let client;
+let cachedClient = null;
+let cachedDb = null;
 
 module.exports = async function handler(req, res) {
 
-  // Health check route
+  // Health check
   if (req.method === "GET") {
     return res.status(200).json({
       status: "Clickstream collector running"
@@ -21,19 +22,19 @@ module.exports = async function handler(req, res) {
     const dbName = process.env.MONGODB_DB || "clickstreamdb";
 
     if (!uri) {
-      console.error("collector error: MONGODB_URI missing");
-
       return res.status(500).json({
-        error: "Server misconfiguration: database URL missing"
+        error: "MONGODB_URI not configured"
       });
     }
 
-    if (!client) {
-      client = new MongoClient(uri);
-      await client.connect();
+    // Reuse cached connection
+    if (!cachedClient) {
+      cachedClient = new MongoClient(uri);
+      await cachedClient.connect();
+      cachedDb = cachedClient.db(dbName);
     }
 
-    const db = client.db(dbName);
+    const db = cachedDb;
 
     let body;
 
@@ -75,7 +76,7 @@ module.exports = async function handler(req, res) {
     console.error("collector error:", err);
 
     return res.status(500).json({
-      error: "Database error: " + err.message
+      error: err.message
     });
 
   }
